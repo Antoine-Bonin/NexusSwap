@@ -1,9 +1,5 @@
 import React from 'react';
 import { User, Award, Shield, DollarSign, Activity } from 'lucide-react';
-import { Recharts, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from 'recharts'; // Mocking usage for single file, normally explicit import
-
-// Mock data for the chart since we can't fully install recharts in this snippet context without package.json
-// We will build a simple CSS bar chart instead to ensure it works 100% without dependencies failing.
 
 interface ProfileProps {
   walletAddress: string | null;
