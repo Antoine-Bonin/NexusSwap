@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
@@ -28,27 +27,42 @@ const App: React.FC = () => {
     return solana;
   };
 
-  // Check for eager connection (if user previously connected)
+  // Poll for wallet availability (handles delayed injection)
   useEffect(() => {
-    const checkWallet = async () => {
-      // Small delay to ensure extension injection has occurred
-      setTimeout(async () => {
-        try {
-          const provider = getProvider();
-          if (provider && provider.isPhantom) {
-            // "onlyIfTrusted" prevents the popup if they haven't connected before
-            const response = await provider.connect({ onlyIfTrusted: true });
-            console.log('Eager connection:', response.publicKey.toString());
-            setWalletAddress(response.publicKey.toString());
-          }
-        } catch (err) {
-          // User not trusted yet or no wallet, do nothing silently
-        }
-      }, 500);
-    };
+    let intervalId: any;
+    let attempts = 0;
 
-    window.addEventListener('load', checkWallet);
-    return () => window.removeEventListener('load', checkWallet);
+    const checkWallet = async () => {
+      attempts++;
+      const provider = getProvider();
+      
+      if (provider) {
+        clearInterval(intervalId); // Stop polling once found
+        
+        // Attempt eager connection if trusted
+        try {
+           // We only auto-connect if the app is already trusted by the wallet
+           if(provider.isPhantom) {
+             const response = await provider.connect({ onlyIfTrusted: true });
+             console.log('Eager connection:', response.publicKey.toString());
+             setWalletAddress(response.publicKey.toString());
+           }
+        } catch (e) {
+           // Not trusted yet, waiting for user to click Connect
+        }
+      }
+
+      // Stop polling after 5 seconds to save resources
+      if (attempts > 10) {
+          clearInterval(intervalId);
+      }
+    };
+    
+    // Check every 500ms
+    intervalId = setInterval(checkWallet, 500);
+    checkWallet(); // Initial check
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleConnect = async () => {
@@ -72,7 +86,8 @@ const App: React.FC = () => {
           if (isIframe) {
               alert('Solana wallets cannot be detected inside this preview frame. Please open the app in a new tab/window to connect.');
           } else {
-              const confirmInstall = window.confirm('Solana wallet not found! Would you like to visit the Phantom website to install it?');
+              // Only prompt to install if we truly can't find it after the polling period
+              const confirmInstall = window.confirm('Solana wallet not found! Please ensure you have Phantom or Solflare installed and try refreshing the page.\n\nWould you like to visit the Phantom website?');
               if (confirmInstall) {
                   window.open('https://phantom.app/', '_blank');
               }
