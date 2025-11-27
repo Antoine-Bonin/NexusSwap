@@ -1,5 +1,8 @@
-import React from 'react';
-import { User, Award, Shield, DollarSign, Activity } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { User, Award, Shield, DollarSign, Activity, Edit2, Save } from 'lucide-react';
+import { UserProfile } from '../types';
+import { getUserProfile, updateUserProfile } from '../services/store';
 
 interface ProfileProps {
   walletAddress: string | null;
@@ -7,6 +10,32 @@ interface ProfileProps {
 }
 
 const Profile: React.FC<ProfileProps> = ({ walletAddress, onConnect }) => {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editAvatar, setEditAvatar] = useState('');
+
+  useEffect(() => {
+    if (walletAddress) {
+        const p = getUserProfile(walletAddress);
+        setProfile(p);
+        setEditName(p.displayName || '');
+        setEditAvatar(p.avatarUrl || '');
+    }
+  }, [walletAddress]);
+
+  const handleSave = () => {
+      if (!profile) return;
+      const updated: UserProfile = {
+          ...profile,
+          displayName: editName,
+          avatarUrl: editAvatar
+      };
+      updateUserProfile(updated);
+      setProfile(updated);
+      setIsEditing(false);
+  };
+
   if (!walletAddress) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
@@ -23,35 +52,75 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress, onConnect }) => {
     );
   }
 
+  if (!profile) return <div>Loading...</div>;
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
         {/* Header Profile Card */}
-        <div className="bg-gradient-to-r from-nexus-800 to-nexus-900 rounded-3xl p-8 border border-nexus-700 mb-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-nexus-warning text-nexus-900 text-xs font-bold px-4 py-1 rounded-bl-xl">EARLY ADOPTER</div>
+        <div className="bg-gradient-to-r from-nexus-800 to-nexus-900 rounded-3xl p-8 border border-nexus-700 mb-8 relative overflow-hidden group">
+            {profile.isEarlyAdopter && (
+                <div className="absolute top-0 right-0 bg-nexus-warning text-nexus-900 text-xs font-bold px-4 py-1 rounded-bl-xl z-20 flex items-center gap-1">
+                    <Award className="w-3 h-3" /> EARLY ADOPTER
+                </div>
+            )}
             
             <div className="flex flex-col md:flex-row items-center gap-6 z-10 relative">
-                <div className="w-24 h-24 bg-nexus-700 rounded-full flex items-center justify-center border-4 border-nexus-900 shadow-xl">
-                    <User className="w-10 h-10 text-nexus-accent" />
+                <div className="relative">
+                    <img 
+                        src={profile.avatarUrl} 
+                        alt="Profile" 
+                        className="w-24 h-24 rounded-full border-4 border-nexus-900 shadow-xl bg-nexus-700 object-cover" 
+                        onError={(e) => { e.currentTarget.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${walletAddress}` }}
+                    />
                 </div>
-                <div className="text-center md:text-left">
-                    <h1 className="text-2xl font-bold text-white font-mono">{walletAddress}</h1>
+                
+                <div className="text-center md:text-left flex-1">
+                    {isEditing ? (
+                        <div className="space-y-3 max-w-xs">
+                            <input 
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                placeholder="Display Name"
+                                className="w-full bg-nexus-900 border border-nexus-600 rounded px-3 py-1 text-white font-bold"
+                            />
+                            <input 
+                                type="text"
+                                value={editAvatar}
+                                onChange={(e) => setEditAvatar(e.target.value)}
+                                placeholder="Avatar URL"
+                                className="w-full bg-nexus-900 border border-nexus-600 rounded px-3 py-1 text-white text-xs"
+                            />
+                        </div>
+                    ) : (
+                        <>
+                             <h1 className="text-2xl font-bold text-white flex items-center justify-center md:justify-start gap-2">
+                                {profile.displayName}
+                                <span className="text-gray-500 text-sm font-mono font-normal">({walletAddress.slice(0,4)}...{walletAddress.slice(-4)})</span>
+                            </h1>
+                        </>
+                    )}
+                   
                     <div className="flex items-center justify-center md:justify-start gap-4 mt-2 text-sm">
                         <span className="flex items-center gap-1 text-nexus-success bg-nexus-success/10 px-2 py-1 rounded">
-                            <Shield className="w-3 h-3" /> Verified
+                            <Shield className="w-3 h-3" /> Verifiable on-chain
                         </span>
-                        <span className="flex items-center gap-1 text-nexus-accent bg-nexus-accent/10 px-2 py-1 rounded">
-                            <Award className="w-3 h-3" /> Top 500
-                        </span>
+                        {profile.isEarlyAdopter && (
+                             <span className="flex items-center gap-1 text-nexus-accent bg-nexus-accent/10 px-2 py-1 rounded">
+                                <Award className="w-3 h-3" /> Top 500
+                            </span>
+                        )}
                     </div>
                 </div>
+
                 <div className="ml-auto flex gap-6 text-center">
                     <div>
-                        <p className="text-gray-400 text-xs uppercase tracking-wide">Reputation</p>
-                        <p className="text-3xl font-bold text-white">100</p>
-                    </div>
-                    <div>
-                        <p className="text-gray-400 text-xs uppercase tracking-wide">Trades</p>
-                        <p className="text-3xl font-bold text-white">0</p>
+                        <button 
+                            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                            className="flex items-center gap-2 bg-nexus-800 hover:bg-nexus-700 border border-nexus-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                        >
+                            {isEditing ? <><Save className="w-4 h-4" /> Save</> : <><Edit2 className="w-4 h-4" /> Edit Profile</>}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -61,20 +130,20 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress, onConnect }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-nexus-800/40 border border-nexus-700 p-6 rounded-2xl">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-gray-400 font-medium">Total Volume</h3>
-                    <DollarSign className="w-5 h-5 text-nexus-success" />
+                    <h3 className="text-gray-400 font-medium">Reputation Score</h3>
+                    <Award className="w-5 h-5 text-nexus-warning" />
                 </div>
-                <p className="text-2xl font-bold text-white">$0.00</p>
-                <p className="text-xs text-gray-500 mt-1">All time traded value</p>
+                <p className="text-3xl font-bold text-white">{profile.reputationScore}</p>
+                <p className="text-xs text-gray-500 mt-1">Based on successful trades</p>
             </div>
             
             <div className="bg-nexus-800/40 border border-nexus-700 p-6 rounded-2xl">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-gray-400 font-medium">Completion Rate</h3>
+                    <h3 className="text-gray-400 font-medium">Trades Completed</h3>
                     <Activity className="w-5 h-5 text-nexus-primary" />
                 </div>
-                <p className="text-2xl font-bold text-white">100%</p>
-                <p className="text-xs text-gray-500 mt-1">Based on accepted orders</p>
+                <p className="text-3xl font-bold text-white">{profile.tradesCompleted}</p>
+                <p className="text-xs text-gray-500 mt-1">Total successful swaps</p>
             </div>
 
             <div className="bg-nexus-800/40 border border-nexus-700 p-6 rounded-2xl flex flex-col justify-center items-center text-center">

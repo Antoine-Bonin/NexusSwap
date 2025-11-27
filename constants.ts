@@ -1,3 +1,4 @@
+
 import { Token, OrderStatus, TradeOrder } from './types';
 
 export const TOKENS: Token[] = [
@@ -7,48 +8,5 @@ export const TOKENS: Token[] = [
   { symbol: 'WIF', name: 'dogwifhat', mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', decimals: 6, logoURI: 'https://dd.dexscreener.com/ds-data/tokens/solana/EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm.png' },
 ];
 
-// Mock Initial Orders
-export const MOCK_ORDERS: TradeOrder[] = [
-  {
-    id: 'ord_1',
-    maker: 'G2F...9sX',
-    makerReputation: 156,
-    tokenSell: TOKENS[0], // SOL
-    amountSell: 10,
-    tokenBuy: TOKENS[1], // USDC
-    amountBuy: 1520,
-    rate: 152,
-    status: OrderStatus.OPEN,
-    createdAt: Date.now() - 3600000,
-    expiresAt: Date.now() + 86400000,
-    isPremium: true,
-  },
-  {
-    id: 'ord_2',
-    maker: 'H7k...22z',
-    makerReputation: 42,
-    tokenSell: TOKENS[2], // BONK
-    amountSell: 5000000,
-    tokenBuy: TOKENS[0], // SOL
-    amountBuy: 2.5,
-    rate: 0.0000005,
-    status: OrderStatus.OPEN,
-    createdAt: Date.now() - 7200000,
-    expiresAt: Date.now() + 86400000,
-    isPremium: false,
-  },
-  {
-    id: 'ord_3',
-    maker: 'Ax9...11q',
-    makerReputation: 8,
-    tokenSell: TOKENS[1], // USDC
-    amountSell: 5000,
-    tokenBuy: TOKENS[3], // WIF
-    amountBuy: 2500,
-    rate: 2,
-    status: OrderStatus.OPEN,
-    createdAt: Date.now() - 100000,
-    expiresAt: Date.now() + 3600000,
-    isPremium: false,
-  }
-];
+// Start with empty orders as requested
+export const MOCK_ORDERS: TradeOrder[] = [];

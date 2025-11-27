@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowDown, Bot, Loader2, PenLine, List, Search } from 'lucide-react';
 import { TOKENS } from '../constants';
-import { createOrder } from '../services/store';
+import { createOrder, getUserProfile } from '../services/store';
 import { OrderStatus, Token } from '../types';
 import { analyzeMarketPair } from '../services/geminiService';
 
@@ -237,10 +238,17 @@ const CreateOrder: React.FC<CreateOrderProps> = ({ walletAddress, onConnect }) =
         return;
     }
 
+    // Get user profile to attach details to order
+    const profile = getUserProfile(walletAddress);
+
     const newOrder = {
       id: `ord_${Date.now()}`,
       maker: walletAddress,
-      makerReputation: 100, // New users start at 100 for demo
+      makerReputation: profile.reputationScore,
+      makerName: profile.displayName,
+      makerAvatar: profile.avatarUrl,
+      makerIsEarly: profile.isEarlyAdopter,
+      
       tokenSell: sellToken,
       amountSell: Number(sellAmount),
       tokenBuy: buyToken,

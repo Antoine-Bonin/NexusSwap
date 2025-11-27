@@ -1,19 +1,33 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, ArrowRightLeft, Star } from 'lucide-react';
+import { Search, Filter, ArrowRightLeft, Star, Award } from 'lucide-react';
 import { getOrders } from '../services/store';
 import { TradeOrder, OrderStatus } from '../types';
 
 const Marketplace: React.FC = () => {
   const [orders, setOrders] = useState<TradeOrder[]>([]);
   const [filterToken, setFilterToken] = useState('ALL');
+  const [totalVolume, setTotalVolume] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
     // Simulate fetching from chain/indexer
     const allOrders = getOrders();
-    // Only show OPEN orders in marketplace
-    setOrders(allOrders.filter(o => o.status === OrderStatus.OPEN));
+    const openOrders = allOrders.filter(o => o.status === OrderStatus.OPEN);
+    setOrders(openOrders);
+    
+    // Calculate pseudo volume (sum of all buy amounts in "USDC" equivalent roughly)
+    // For demo, just sum Buy amounts if token is USDC, otherwise ignore for simple math
+    const vol = allOrders.reduce((acc, o) => {
+        if(o.tokenBuy.symbol === 'USDC') return acc + o.amountBuy;
+        if(o.tokenSell.symbol === 'USDC') return acc + o.amountSell;
+        // Mock conversion for SOL for demo visual
+        if(o.tokenBuy.symbol === 'SOL') return acc + (o.amountBuy * 150);
+        return acc;
+    }, 0);
+    setTotalVolume(vol);
+
   }, []);
 
   const filteredOrders = orders.filter(order => {
@@ -37,7 +51,7 @@ const Marketplace: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-nexus-800/50 p-4 rounded-xl border border-nexus-800 backdrop-blur text-center">
             <p className="text-gray-400 text-sm">Total Vol (24h)</p>
-            <p className="text-2xl font-mono font-bold text-white">$1.2M</p>
+            <p className="text-2xl font-mono font-bold text-white">${totalVolume.toLocaleString()}</p>
         </div>
         <div className="bg-nexus-800/50 p-4 rounded-xl border border-nexus-800 backdrop-blur text-center">
             <p className="text-gray-400 text-sm">Active Orders</p>
@@ -45,7 +59,7 @@ const Marketplace: React.FC = () => {
         </div>
         <div className="bg-nexus-800/50 p-4 rounded-xl border border-nexus-800 backdrop-blur text-center">
             <p className="text-gray-400 text-sm">Avg. Completion</p>
-            <p className="text-2xl font-mono font-bold text-nexus-success">4 mins</p>
+            <p className="text-2xl font-mono font-bold text-nexus-success">~3m</p>
         </div>
          <div className="bg-nexus-800/50 p-4 rounded-xl border border-nexus-800 backdrop-blur text-center">
             <p className="text-gray-400 text-sm">Escrow Fee</p>
@@ -97,16 +111,30 @@ const Marketplace: React.FC = () => {
             
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
-                <img src={order.tokenSell.logoURI} alt={order.tokenSell.symbol} className="w-10 h-10 rounded-full bg-black" />
+                <img src={order.tokenSell.logoURI} alt={order.tokenSell.symbol} className="w-10 h-10 rounded-full bg-black object-cover" />
                 <ArrowRightLeft className="w-5 h-5 text-gray-500" />
-                <img src={order.tokenBuy.logoURI} alt={order.tokenBuy.symbol} className="w-10 h-10 rounded-full bg-black" />
+                <img src={order.tokenBuy.logoURI} alt={order.tokenBuy.symbol} className="w-10 h-10 rounded-full bg-black object-cover" />
               </div>
-              <div className="text-right">
-                <div className="flex items-center justify-end gap-1 text-nexus-warning text-xs font-bold">
-                    <Star className="w-3 h-3 fill-current" />
-                    {order.makerReputation}
+              <div className="flex items-center gap-2 text-right">
+                <div className="text-right">
+                    <div className="flex items-center justify-end gap-1 text-nexus-warning text-xs font-bold">
+                        <Star className="w-3 h-3 fill-current" />
+                        {order.makerReputation}
+                    </div>
+                     <div className="flex items-center justify-end gap-2 mt-1">
+                         {order.makerIsEarly && (
+                             <span title="Early Adopter" className="flex items-center">
+                                 <Award className="w-3 h-3 text-nexus-accent" />
+                             </span>
+                         )}
+                         <p className="text-xs text-gray-400 font-medium">
+                            {order.makerName || `${order.maker.slice(0, 4)}...${order.maker.slice(-4)}`}
+                         </p>
+                    </div>
                 </div>
-                <p className="text-xs text-gray-500 font-mono">{order.maker.slice(0, 4)}...{order.maker.slice(-4)}</p>
+                {order.makerAvatar && (
+                    <img src={order.makerAvatar} alt="Maker" className="w-8 h-8 rounded-full border border-nexus-600 bg-nexus-900" />
+                )}
               </div>
             </div>
 

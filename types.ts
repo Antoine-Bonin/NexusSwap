@@ -19,6 +19,11 @@ export interface TradeOrder {
   id: string;
   maker: string; // Wallet address
   makerReputation: number;
+  // Profile info snapshots for the order card
+  makerName?: string;
+  makerAvatar?: string;
+  makerIsEarly?: boolean;
+  
   tokenSell: Token;
   amountSell: number;
   tokenBuy: Token;
@@ -41,6 +46,8 @@ export interface ChatMessage {
 
 export interface UserProfile {
   address: string;
+  displayName?: string;
+  avatarUrl?: string;
   reputationScore: number;
   tradesCompleted: number;
   tradesFailed: number;
