@@ -25,7 +25,7 @@ export const analyzeMarketPair = async (tokenA: Token, tokenB: Token): Promise<s
             model: 'gemini-2.5-flash',
             contents: prompt,
         });
-        return response.text.trim();
+        return response.text ? response.text.trim() : "Market data currently unavailable.";
     } catch (error) {
         console.error("Gemini Analysis Failed", error);
         return "Market data currently unavailable due to solar flares.";
@@ -41,7 +41,7 @@ export const generateTradingTip = async (context: string): Promise<string> => {
             model: 'gemini-2.5-flash',
             contents: `Give a one-sentence safety tip for P2P OTC crypto trading regarding: ${context}`,
         });
-        return response.text.trim();
+        return response.text ? response.text.trim() : "Always verify wallet addresses twice.";
     } catch (error) {
         return "Always verify wallet addresses twice.";
     }
