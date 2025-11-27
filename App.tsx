@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
@@ -9,23 +10,83 @@ import Profile from './pages/Profile';
 const App: React.FC = () => {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
-  // Simulate wallet persistence
+  // Helper function to robustly get the Solana provider
+  const getProvider = () => {
+    if ('phantom' in window) {
+      const provider = window.phantom?.solana;
+      if (provider?.isPhantom) {
+        return provider;
+      }
+    }
+
+    const { solana } = window;
+    if (solana?.isPhantom) {
+      return solana;
+    }
+    
+    // Fallback: Return solana object if it exists (for other wallets like Solflare)
+    return solana;
+  };
+
+  // Check for eager connection (if user previously connected)
   useEffect(() => {
-    const saved = localStorage.getItem('nexus_wallet');
-    if (saved) setWalletAddress(saved);
+    const checkWallet = async () => {
+      // Small delay to ensure extension injection has occurred
+      setTimeout(async () => {
+        try {
+          const provider = getProvider();
+          if (provider && provider.isPhantom) {
+            // "onlyIfTrusted" prevents the popup if they haven't connected before
+            const response = await provider.connect({ onlyIfTrusted: true });
+            console.log('Eager connection:', response.publicKey.toString());
+            setWalletAddress(response.publicKey.toString());
+          }
+        } catch (err) {
+          // User not trusted yet or no wallet, do nothing silently
+        }
+      }, 500);
+    };
+
+    window.addEventListener('load', checkWallet);
+    return () => window.removeEventListener('load', checkWallet);
   }, []);
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
+    const provider = getProvider();
+
     if (walletAddress) {
-        setWalletAddress(null);
-        localStorage.removeItem('nexus_wallet');
+      // Disconnect Logic
+      try {
+        if (provider) {
+            await provider.disconnect();
+            setWalletAddress(null);
+        }
+      } catch (err) {
+          console.error("Disconnect error", err);
+      }
     } else {
-        // Simulate connection delay
-        const mockAddress = '8xLt...9kQ2'; // Simplified mock address
-        setTimeout(() => {
-            setWalletAddress(mockAddress);
-            localStorage.setItem('nexus_wallet', mockAddress);
-        }, 500);
+      // Connect Logic
+      if (!provider) {
+          // Check if we are in an iframe (often blocks wallet injection)
+          const isIframe = window.self !== window.top;
+          if (isIframe) {
+              alert('Solana wallets cannot be detected inside this preview frame. Please open the app in a new tab/window to connect.');
+          } else {
+              const confirmInstall = window.confirm('Solana wallet not found! Would you like to visit the Phantom website to install it?');
+              if (confirmInstall) {
+                  window.open('https://phantom.app/', '_blank');
+              }
+          }
+          return;
+      }
+
+      try {
+          const response = await provider.connect();
+          console.log('Connected to wallet:', response.publicKey.toString());
+          setWalletAddress(response.publicKey.toString());
+      } catch (err) {
+          console.error("User rejected connection", err);
+      }
     }
   };
 

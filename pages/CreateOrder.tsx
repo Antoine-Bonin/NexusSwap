@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, Bot, Loader2, PenLine, List } from 'lucide-react';
+import { ArrowDown, Bot, Loader2, PenLine, List, Search } from 'lucide-react';
 import { TOKENS } from '../constants';
 import { createOrder } from '../services/store';
 import { OrderStatus, Token } from '../types';
@@ -30,19 +30,76 @@ const TokenInput = ({
   const [isCustom, setIsCustom] = useState(false);
   const [customMint, setCustomMint] = useState('');
   const [customSymbol, setCustomSymbol] = useState('');
+  const [isFetchingMeta, setIsFetchingMeta] = useState(false);
 
-  const handleCustomChange = (mint: string, symbol: string) => {
-    setCustomMint(mint);
-    setCustomSymbol(symbol);
-    
-    // Update parent immediately
-    onTokenChange({
-        symbol: symbol.toUpperCase() || 'CUSTOM',
-        name: symbol || 'Custom Token',
-        mint: mint,
-        decimals: 6, // Default for custom mock
-        logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' // Generic fallback
-    });
+  // Auto-fetch metadata from DexScreener when mint changes
+  useEffect(() => {
+    const fetchMetadata = async () => {
+        if (!isCustom || customMint.length < 32) return;
+
+        setIsFetchingMeta(true);
+        try {
+            const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${customMint}`);
+            const data = await response.json();
+
+            if (data.pairs && data.pairs.length > 0) {
+                // Find the pair where the base token matches our mint
+                const pair = data.pairs[0];
+                const baseToken = pair.baseToken;
+                const info = pair.info;
+
+                if (baseToken && baseToken.address === customMint) {
+                    const symbol = baseToken.symbol;
+                    const name = baseToken.name;
+                    // DexScreener V1 API: check info.imageUrl or construct CDN url
+                    const imageUrl = info?.imageUrl || `https://dd.dexscreener.com/ds-data/tokens/solana/${customMint}.png`;
+
+                    setCustomSymbol(symbol);
+                    
+                    onTokenChange({
+                        symbol: symbol,
+                        name: name || 'Custom Token',
+                        mint: customMint,
+                        decimals: 6, // Default fallback
+                        logoURI: imageUrl
+                    });
+                }
+            } else {
+                 // Fallback if not found on DexScreener, use generic
+                 // We keep the mint but maybe can't find symbol
+            }
+        } catch (error) {
+            console.error("Failed to fetch token metadata", error);
+        } finally {
+            setIsFetchingMeta(false);
+        }
+    };
+
+    const timeoutId = setTimeout(() => {
+        fetchMetadata();
+    }, 800); // Debounce 800ms
+
+    return () => clearTimeout(timeoutId);
+  }, [customMint, isCustom]);
+
+  const handleCustomMintChange = (val: string) => {
+      setCustomMint(val);
+      // Immediate update for mint, keep previous symbol until fetch completes or user types
+      onTokenChange({
+          ...token,
+          mint: val,
+          // If we are clearing input, reset symbol to CUSTOM
+          symbol: val ? (token.symbol === 'SOL' ? 'CUSTOM' : token.symbol) : 'CUSTOM'
+      });
+  };
+
+  const handleCustomSymbolChange = (val: string) => {
+      setCustomSymbol(val);
+      onTokenChange({
+          ...token,
+          symbol: val.toUpperCase(),
+          name: val
+      });
   };
 
   const toggleCustom = () => {
@@ -50,7 +107,7 @@ const TokenInput = ({
     setIsCustom(newState);
     
     if (newState) {
-        // Switching to Custom: Reset to empty custom state
+        // Switching to Custom
         setCustomMint('');
         setCustomSymbol('');
         onTokenChange({
@@ -94,40 +151,48 @@ const TokenInput = ({
             />
             
             {!isCustom ? (
-                 <div className="relative w-32">
+                 <div className="relative w-36">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                         <img src={token.logoURI} alt="" className="w-6 h-6 rounded-full" />
+                    </div>
                     <select
                         value={TOKENS.some(t => t.mint === token.mint) ? token.symbol : ''}
                         onChange={(e) => handlePresetSelect(e.target.value)}
-                        className="w-full h-full bg-nexus-800 border border-nexus-700 rounded-xl px-4 py-2 text-white font-bold focus:outline-none appearance-none cursor-pointer hover:bg-nexus-700 transition-colors"
+                        className="w-full h-full bg-nexus-800 border border-nexus-700 rounded-xl pl-12 pr-4 py-2 text-white font-bold focus:outline-none appearance-none cursor-pointer hover:bg-nexus-700 transition-colors"
                     >
                         {TOKENS.map(t => <option key={t.symbol} value={t.symbol}>{t.symbol}</option>)}
                     </select>
                 </div>
             ) : (
-                <div className="w-32 flex items-center justify-center bg-nexus-800 border border-nexus-700 rounded-xl">
-                    <span className="text-xs font-mono text-nexus-accent font-bold">CUSTOM</span>
+                <div className="w-36 flex items-center justify-center bg-nexus-800 border border-nexus-700 rounded-xl relative overflow-hidden">
+                    {token.logoURI && token.logoURI !== 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' && (
+                        <img src={token.logoURI} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
+                    )}
+                    <span className="text-sm font-mono text-nexus-accent font-bold relative z-10 truncate px-2">
+                        {token.symbol || 'CUSTOM'}
+                    </span>
                 </div>
             )}
         </div>
 
         {isCustom && (
-            <div className="grid grid-cols-3 gap-2 p-3 bg-nexus-900/30 rounded-lg border border-nexus-800 animate-in fade-in slide-in-from-top-2">
-                <div className="col-span-3 text-xs text-gray-500 flex justify-between">
-                    <span>Custom Token Details</span>
-                    <span className="text-[10px] opacity-60">Mock Mode: No RPC validation</span>
+            <div className="grid grid-cols-3 gap-2 p-3 bg-nexus-900/30 rounded-lg border border-nexus-800 animate-in fade-in slide-in-from-top-2 relative">
+                <div className="col-span-3 text-xs text-gray-500 flex justify-between items-center">
+                    <span>Token Address</span>
+                    {isFetchingMeta && <span className="flex items-center gap-1 text-nexus-primary"><Loader2 className="w-3 h-3 animate-spin"/> Fetching info...</span>}
                 </div>
                 <input 
                     type="text"
                     placeholder="Mint Address (e.g. So11...)"
                     value={customMint}
-                    onChange={(e) => handleCustomChange(e.target.value, customSymbol)}
+                    onChange={(e) => handleCustomMintChange(e.target.value)}
                     className="col-span-2 bg-nexus-900 border border-nexus-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-nexus-primary placeholder-gray-600 font-mono"
                 />
                  <input 
                     type="text"
-                    placeholder="Symbol (e.g. PEPE)"
+                    placeholder="Symbol"
                     value={customSymbol}
-                    onChange={(e) => handleCustomChange(customMint, e.target.value)}
+                    onChange={(e) => handleCustomSymbolChange(e.target.value)}
                     className="col-span-1 bg-nexus-900 border border-nexus-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-nexus-primary placeholder-gray-600 font-mono"
                 />
             </div>

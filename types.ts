@@ -1,3 +1,4 @@
+
 export enum OrderStatus {
   OPEN = 'OPEN',
   LOCKED = 'LOCKED',
@@ -46,4 +47,12 @@ export interface UserProfile {
   isEarlyAdopter: boolean;
   isPremium: boolean;
   volumeUsd: number;
+}
+
+// Window Interface for Solana Injection
+declare global {
+  interface Window {
+    solana?: any;
+    phantom?: any;
+  }
 }
